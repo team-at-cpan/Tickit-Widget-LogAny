@@ -10,12 +10,12 @@ use Tickit::Widget::Static;
 use Tickit::Widget::VBox;
 
 my $vbox = Tickit::Widget::VBox->new;
-$vbox->add(Tickit::Widget::Static->new(
-	text => 'test',
-));
 $vbox->add(my $w = Tickit::Widget::LogAny->new(
 		warn => 1,
 	), expand => 1);
+$vbox->add(Tickit::Widget::Static->new(
+	text => 'This is another widget',
+));
 my $tickit = Tickit->new(
 	root => $vbox,
 		# root => 
