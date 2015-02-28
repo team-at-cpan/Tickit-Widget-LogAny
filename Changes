@@ -2,5 +2,10 @@ Revision history for {{$dist->name}}
 
 {{$NEXT}}
 
+0.002     2015-02-06 18:28:54+00:00 Europe/London
+	Features:
+	* Display stack trace for selected log line
+	* Proper desktop rendering support
+
 0.001     2015-02-06 13:13:47+00:00 Europe/London
 	Initial CPAN release
