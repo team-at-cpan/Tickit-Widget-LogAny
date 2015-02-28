@@ -19,6 +19,13 @@ Tickit::Widget::LogAny - log message rendering
 
 Provides basic log rendering, with optional warn() / STDERR capture.
 
+=begin HTML
+
+<p>Basic rendering:</p>
+<p><img src="http://tickit.perlsite.co.uk/cpan-screenshot/tickit-widget-logany-basic.png" alt="Log::Any output displayed in Tickit widget" width="663" height="208"></p>
+
+=end HTML
+
 =cut
 
 use Log::Any qw($log);
@@ -68,11 +75,13 @@ Takes the following named parameters:
 
 =over 4
 
-=item * lines - maximum number of lines to store and display, defaults to DEFAULT_LINES (5)
-
 =item * warn - if true, will install a handler for warn()
 
+=item * stderr - if true, will install a handler for all STDERR output
+
 =item * scroll - if true (default), will attempt to scroll the window on new entries
+
+=item * max_entries - will limit the number of entries we'll store, default is 5000, set to 0 for no limit
 
 =back
 
@@ -211,6 +220,7 @@ sub on_splice {
 }
 
 sub max_entries { shift->{max_entries} }
+
 sub log_storage { shift->{log_storage} }
 
 sub window_gained {
@@ -224,11 +234,6 @@ sub window_gained {
 }
 
 sub children { shift->{table} }
-
-=head2 render_to_rb
-
-
-=cut
 
 sub render_to_rb {
 	my ($self, $rb, $rect) = @_;
