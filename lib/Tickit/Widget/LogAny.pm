@@ -59,13 +59,22 @@ sub new {
 	my $class = shift;
 	my %args = @_;
 	my $log_storage = Adapter::Async::OrderedList::Array->new;
+	Log::Any::Adapter->set('Tickit', adapter => $log_storage);
+	my $max_entries = delete($args{max_entries}) // 5000;
+	my $io_async = delete $args{io_async};
+	my $lines = delete $args{lines};
+	my $warn = delete $args{warn};
+	my $stderr = delete $args{stderr};
+	my $scroll = exists $args{scroll} ? delete $args{scroll} : 1;
+	my $self = $class->SUPER::new(%args);
 	$log_storage->bus->subscribe_to_event(
 		splice => sub {
 			my ($ev, $idx, $len, $data, $spliced) = @_;
+			return unless $self->max_entries;
 			retain_future(
 				$log_storage->count->then(sub {
 					my ($rows) = @_;
-					my $len = $rows - 100;
+					my $len = $rows - $self->max_entries;
 					return Future->done if $len <= 0;
 					$log_storage->splice(
 						0, $len, []
@@ -74,13 +83,6 @@ sub new {
 			)
 		}
 	);
-	Log::Any::Adapter->set('Tickit', adapter => $log_storage);
-	my $io_async = delete $args{io_async};
-	my $lines = delete $args{lines};
-	my $warn = delete $args{warn};
-	my $stderr = delete $args{stderr};
-	my $scroll = exists $args{scroll} ? delete $args{scroll} : 1;
-	my $self = $class->SUPER::new(%args);
 	$self->{log_storage} = $log_storage;
 	$self->{lines} = $lines if $lines;
 	$self->{scroll} = $scroll;
@@ -145,6 +147,7 @@ sub new {
 	$self;
 }
 
+sub max_entries { shift->{max_entries} }
 sub log_storage { shift->{log_storage} }
 
 sub window_gained {
@@ -158,11 +161,8 @@ sub window_gained {
 
 sub children { shift->{table} }
 
-sub warn { shift->info(@_) }
+=head2 render_to_rb
 
-=head2 render
-
-Draws all log lines to the terminal.
 
 =cut
 
@@ -170,51 +170,6 @@ sub render_to_rb {
 	my ($self, $rb, $rect) = @_;
 	my $win = $self->window or return;
 	$rb->clear;
-}
-
-=head2 reformat_text
-
-Adjust text based on line breaks and terminal width, returns list of lines that should be rendered.
-
-=cut
-
-sub reformat_text {
-	my $self = shift;
-	my $win = $self->window or die 'no window';
-
-# Expand \n linebreaks so we get an accurate count of characters required
-	my @log;
-	foreach (@{$self->{log}}) {
-		my $entry = $_;
-		push @log, substr $entry, 0, min(length $entry, $win->cols-1), '' while length $entry;
-	}
-
-# Fit lines to available window
-	splice @log, 0, scalar(@log) - $self->window->lines if $self->window->lines < @log;
-	return @log;
-}
-
-=head2 info
-
-Logs information. Call this with the line of data to report.
-
-=cut
-
-sub info {
-	my $self = shift;
-	my $entry = shift;
-	$entry =~ s/\s*$//g;
-
-# Prepend timestamp
-	$entry = localtime() . " $entry";
-
-	push @{$self->{log}}, $entry;
-
-# Trim any lines that go past the limit
-	splice @{$self->{log}}, 0, scalar(@{$self->{log}}) - $self->lines if $self->lines < @{$self->{log}};
-
-	$self->draw_new_entry($entry);
-	return $self;
 }
 
 =head2 reshape
@@ -232,41 +187,6 @@ sub reshape {
 	}
 	return $self->SUPER::reshape(@_);
 }
-
-=head2 draw_new_entry
-
-Renders a new entry. Takes a single parameter which should be the scalar text to
-render.
-
-=cut
-
-sub draw_new_entry {
-	my $self = shift;
-	my $entry = shift;
-
-# No point drawing until we have a window...
-	my $win = $self->window or return;
-
-	# and if we do, try to scroll first in the hope that it's more efficient
-	if($self->{scroll} && $win->scroll(-1, 0)) {
-		$win->goto($win->lines - 1, 0);
-		$win->print($entry);
-		# FIXME off by 1?
-		my $remaining = $win->cols - textwidth($entry);
-		$win->erasech($remaining) if $remaining;
-	} else {
-		$self->redraw;
-	}
-	return $self;
-}
-
-=head2 sap
-
-Wrap coderef with additional weakself for storing callbacks that might lead to cycles.
-
-=cut
-
-sub sap { my ($self, $sub) = @_; Scalar::Util::weaken $self; return sub { $self->$sub(@_); }; }
 
 1;
 
