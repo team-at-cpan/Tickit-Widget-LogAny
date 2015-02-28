@@ -264,7 +264,11 @@ sub show_stacktrace {
 
 	my $tbl = Tickit::Widget::Table->new(
 		columns => [
-			{ label => 'File' },
+			{ label => 'File', transform => sub {
+				my ($row, $col, $cell) = @_;
+				$cell =~ s{^\Q$_/}{} for @INC;
+				$cell
+			} },
 			{ label => 'Line', width => 5 },
 			{ label => 'Context', width => 8 },
 			{ label => 'Sub' },
