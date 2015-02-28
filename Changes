@@ -3,6 +3,7 @@ Revision history for {{$dist->name}}
 {{$NEXT}}
 	Features:
 	* Strip @INC entries from filenames to make things more readable
+	* Cleaned up styles slightly
 
 0.002     2015-02-06 18:28:54+00:00 Europe/London
 	Features:
