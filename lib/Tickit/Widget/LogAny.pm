@@ -5,7 +5,7 @@ use warnings;
 
 use parent qw(Tickit::ContainerWidget);
 
-our $VERSION = '0.002';
+our $VERSION = '0.003';
 
 =head1 NAME
 
@@ -40,6 +40,7 @@ use Variable::Disposition qw(dispose retain retain_future);
 use POSIX qw(strftime);
 use Text::Wrap (); 
 
+use Tickit::Utils qw(textwidth substrwidth);
 use Tickit::Style;
 use Tickit::Widget::Table;
 use Tickit::Widget::VBox;
@@ -66,6 +67,8 @@ BEGIN {
 		severity_info_fg      => 'green',
 		severity_debug_fg     => 'grey',
 		severity_trace_fg     => 'grey',
+		subname_fg            => 'hi-blue',
+		subname_b             => 1,
 		;
 }
 
@@ -262,16 +265,28 @@ sub show_stacktrace {
 		$holder->add(Tickit::Widget::Static->new(text => $_)) for @text;
 	}
 
-	my $tbl = Tickit::Widget::Table->new(
+	my $tbl;
+	$tbl = Tickit::Widget::Table->new(
 		columns => [
-			{ label => 'File', transform => sub {
+			{ label => 'Location', transform => sub {
 				my ($row, $col, $cell) = @_;
 				$cell =~ s{^\Q$_/}{} for @INC;
-				$cell
+				Future->done($cell)
 			} },
-			{ label => 'Line', width => 5 },
 			{ label => 'Context', width => 8 },
-			{ label => 'Sub' },
+			{ label => 'Sub', transform => sub {
+				my ($row, $col, $cell) = @_;
+				my $w = $tbl->column_width($col) - textwidth($cell);
+				$cell = '...' . substrwidth($cell, 3-$w) if $w < 0;
+				my $pos = rindex($cell, '::') or return Future->done($cell);
+				Future->done(
+					String::Tagged->new(
+						$cell
+					)->apply_tag(
+						$pos + 2, -1, $self->get_style_pen('subname')->getattrs
+					)
+				)
+			} },
 		],
 		failure_transformations => [
 			sub { '' }
@@ -279,7 +294,10 @@ sub show_stacktrace {
 		item_transformations => [
 			sub {
 				my ($idx, $item) = @_;
-				Future->done([ map $_ // '', @{$item}{qw(filename line ctx sub)} ])
+				Future->done([
+					$item->{filename} . ':' . $item->{line},
+					@{$item}{qw(ctx sub)}
+				])
 			}
 		]
 	);
@@ -288,6 +306,8 @@ sub show_stacktrace {
 	my $win = $self->window;
 	$holder->add(
 		Tickit::Widget::Button->new(
+			class => 'stacktrace_ok',
+			style => { linetype => 'none' },
 			label => 'OK',
 			on_click => sub {
 				eval {
@@ -312,7 +332,7 @@ sub stacktrace_holder_widget {
 	$container = $self unless $container;
 
 	my $cleanup = sub { ... };
-	retain(my $vbox = Tickit::Widget::VBox->new);
+	retain(my $vbox = Tickit::Widget::VBox->new(style => { spacing => 1 }));
 	my $win = $self->window;
 	if($container->isa('Tickit::Widget::FloatBox')) {
 		$container->add_float(
