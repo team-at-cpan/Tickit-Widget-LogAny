@@ -5,7 +5,7 @@ use warnings;
 
 use parent qw(Tickit::ContainerWidget);
 
-our $VERSION = '0.003';
+our $VERSION = '0.004';
 
 =head1 NAME
 
@@ -24,7 +24,7 @@ Provides basic log rendering, with optional warn() / STDERR capture.
 <p>Basic rendering:</p>
 <p><img src="http://tickit.perlsite.co.uk/cpan-screenshot/tickit-widget-logany-basic.png" alt="Log::Any output displayed in Tickit widget" width="663" height="208"></p>
 <p>Stack trace popup:</p>
-<p><img src="http://tickit.perlsite.co.uk/cpan-screenshot/tickit-widget-logany-basic.png" alt="Log message with stack trace popup display using Tickit desktop layout" width="675" height="362"></p>
+<p><img src="http://tickit.perlsite.co.uk/cpan-screenshot/tickit-widget-logany-stacktrace.png" alt="Log message with stack trace popup display using Tickit desktop layout" width="675" height="362"></p>
 
 =end HTML
 
