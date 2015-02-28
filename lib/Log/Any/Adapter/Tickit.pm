@@ -38,6 +38,22 @@ sub init {
 
 sub adapter { shift->{adapter} //= Adapter::Async::OrderedList::Array->new }
 
+sub stack_trace {
+	my ($self, $level) = @_;
+	my @trace;
+	my $idx = $level || 0;
+	while(my @details = caller($idx++)) {
+		push @trace, {
+			package  => $details[0],
+			filename => $details[1],
+			line     => $details[2],
+			sub      => $details[3],
+			ctx      => $details[5] ? 'list' : defined($details[5]) ? 'scalar' : 'void',
+		}
+	}
+	\@trace
+}
+
 foreach my $method ( Log::Any::Adapter::Util::logging_methods() ) {
     no strict 'refs';
     my $method_level = Log::Any::Adapter::Util::numeric_level($method);
@@ -49,6 +65,7 @@ foreach my $method ( Log::Any::Adapter::Util::logging_methods() ) {
 			message   => $text,
 			category  => $self->{category},
 			timestamp => Time::HiRes::time,
+			stack     => $self->stack_trace(2)
 		} ]);
     };
 }

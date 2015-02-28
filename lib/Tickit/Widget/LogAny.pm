@@ -33,11 +33,16 @@ use Log::Any::Adapter;
 use Log::Any::Adapter::Tickit;
 use Log::Any::Adapter::Util ();
 
-use Variable::Disposition qw(retain_future);
+use Variable::Disposition qw(dispose retain retain_future);
 use POSIX qw(strftime);
+use Text::Wrap (); 
 
 use Tickit::Style;
 use Tickit::Widget::Table;
+use Tickit::Widget::VBox;
+use Tickit::Widget::Static;
+use Tickit::Widget::Frame;
+use Tickit::Widget::Button;
 
 use constant DEFAULT_LINES => 5;
 use constant WIDGET_PEN_FROM_STYLE => 1;
@@ -111,6 +116,7 @@ sub new {
 	$self->{table} = Tickit::Widget::Table->new(
 		class   => 'log_entries',
 		adapter => $self->log_storage,
+		on_activate => $self->curry::weak::show_stacktrace,
 		failure_transformations => [
 			sub { '' }
 		],
@@ -240,6 +246,88 @@ sub render_to_rb {
 	my $win = $self->window or return;
 	$rb->clear;
 	$rb->text_at(0,0, "Level: all   Category: all   Filter: ", $self->get_style_pen);
+}
+
+sub show_stacktrace {
+	my ($self, $id, $items) = @_;
+	my ($item) = @$items;
+	my $container = $self;
+	$container = $container->parent while !$container->isa('Tickit::Widget::FloatBox') && !$container->isa('Tickit::Widget::Desktop') && $container->can('parent') && $container->parent;
+	$container = $self unless $container;
+	my $cleanup = sub { ... };
+	my $vbox = Tickit::Widget::VBox->new;
+		my $win = $self->window;
+	if($container->isa('Tickit::Widget::FloatBox')) {
+		$container->add_float(
+			child => $vbox
+		)
+	} elsif($container->isa('Tickit::Widget::Desktop')) {
+		die '...';
+	} else {
+		# Tickit::Window
+		my $float = $win->make_float(
+			2,
+			2,
+			$win->lines - 4,
+			$win->cols - 4
+		);
+		my $frame = Tickit::Widget::Frame->new(
+			child => $vbox,
+			title => 'Stack trace',
+			style => { linetype => 'single' }
+		);
+		$frame->set_window($float);
+		retain $frame;
+		$float->show;
+		$cleanup = sub {
+			$float->close;
+			$win->tickit->later(sub {
+				eval { dispose $frame; 1 }
+					or warn "Failed to dispose frame - $@";
+			})
+		};
+	}
+
+	{
+		local $Text::Wrap::columns = $vbox->window->cols;
+		my @text = map { split /\n/, $_ } Text::Wrap::wrap('', '', $item->{message});
+		$vbox->add(Tickit::Widget::Static->new(text => $_)) for @text;
+	}
+
+	my $tbl = Tickit::Widget::Table->new(
+		columns => [
+			{ label => 'File' },
+			{ label => 'Line', width => 5 },
+			{ label => 'Context', width => 8 },
+			{ label => 'Sub' },
+		],
+		failure_transformations => [
+			sub { '' }
+		],
+		item_transformations => [
+			sub {
+				my ($idx, $item) = @_;
+				Future->done([ map $_ // '', @{$item}{qw(filename line ctx sub)} ])
+			}
+		]
+	);
+	$vbox->add($tbl, expand => 1);
+	$tbl->adapter->push(map $_->{stack}, @$items);
+	$vbox->add(
+		retain(Tickit::Widget::Button->new(
+			label => 'OK',
+			on_click => sub {
+				$cleanup->();
+				$win->expose;
+				
+				$win->tickit->later(sub {
+					eval { dispose $vbox; 1 }
+						or warn "Failed to dispose vbox - $@";
+				});
+			}
+		))
+	);
+	retain $vbox;
 }
 
 1;
