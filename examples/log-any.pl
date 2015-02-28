@@ -11,8 +11,7 @@ use Tickit::Widget::VBox;
 
 my $vbox = Tickit::Widget::VBox->new;
 $vbox->add(my $w = Tickit::Widget::LogAny->new(
-		warn => 1,
-	), expand => 1);
+), expand => 1);
 $vbox->add(Tickit::Widget::Static->new(
 	text => 'This is another widget',
 ));
@@ -20,8 +19,6 @@ my $tickit = Tickit->new(
 	root => $vbox,
 		# root => 
 );
-warn "a warning\n";
-warn "a warning with no \\n";
 $log->debug("This is a debug message");
 $log->debug("This message $_") for 1..5;
 $tickit->run;

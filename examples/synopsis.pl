@@ -13,6 +13,8 @@ my $tickit = Tickit->new(
 );
 print STDERR "print to STDERR\n";
 printf STDERR "printf(...) to %s", 'STDERR';
+warn "a warning\n";
+warn "a warning with no \\n";
 $log->trace('trace message');
 $log->info('info message');
 $log->debug('debug message');
