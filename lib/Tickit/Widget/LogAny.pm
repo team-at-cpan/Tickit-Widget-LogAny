@@ -23,11 +23,14 @@ Provides basic log rendering, with optional warn() / STDERR capture.
 
 <p>Basic rendering:</p>
 <p><img src="http://tickit.perlsite.co.uk/cpan-screenshot/tickit-widget-logany-basic.png" alt="Log::Any output displayed in Tickit widget" width="663" height="208"></p>
+<p>Stack trace popup:</p>
+<p><img src="http://tickit.perlsite.co.uk/cpan-screenshot/tickit-widget-logany-basic.png" alt="Log message with stack trace popup display using Tickit desktop layout" width="675" height="362"></p>
 
 =end HTML
 
 Activating any line in the list of log messages (typically by pressing C<Enter>) will
-show the stack trace for that entry.
+show the stack trace for that entry. Use the OK button to close (typically by pressing
+C<Tab>, then C<Enter>).
 
 =cut
 
