@@ -250,40 +250,67 @@ sub render_to_rb {
 
 sub show_stacktrace {
 	my ($self, $id, $items) = @_;
+
+	eval {
 	my ($item) = @$items;
 	my $container = $self;
-	$container = $container->parent while !$container->isa('Tickit::Widget::FloatBox') && !$container->isa('Tickit::Widget::Desktop') && $container->can('parent') && $container->parent;
+	$container = $container->parent while !$container->isa('Tickit::Widget::FloatBox') && !$container->isa('Tickit::Widget::Layout::Desktop') && $container->can('parent') && $container->parent;
 	$container = $self unless $container;
 	my $cleanup = sub { ... };
-	my $vbox = Tickit::Widget::VBox->new;
-		my $win = $self->window;
+	retain(my $vbox = Tickit::Widget::VBox->new);
+	my $win = $self->window;
 	if($container->isa('Tickit::Widget::FloatBox')) {
 		$container->add_float(
 			child => $vbox
 		)
-	} elsif($container->isa('Tickit::Widget::Desktop')) {
-		die '...';
+	} elsif($container->isa('Tickit::Widget::Layout::Desktop')) {
+		my $panel = $container->create_panel(
+			label => 'Stack trace',
+			lines => 20,
+			cols => 60,
+			top => 5,
+			left => 5,
+		);
+		$panel->add($vbox);
+		$cleanup = sub {
+			eval {
+				$panel->close;
+				dispose $panel;
+				1;
+			} or do {
+				warn "Failed - $@";
+			};
+			$win->expose;
+		};
 	} else {
-		# Tickit::Window
+		# We don't have any suitable float holders, so we'll just overlay this
+		# using our window as a parent. This next set of measurements assumes we
+		# have a bit of space to play with - if we don't, I'm not sure how best
+		# to handle this: use the root window instead, or just bail out?
 		my $float = $win->make_float(
 			2,
 			2,
 			$win->lines - 4,
 			$win->cols - 4
 		);
-		my $frame = Tickit::Widget::Frame->new(
+		# Need to hold on to the top widget in the new hierarchy
+		retain(my $frame = Tickit::Widget::Frame->new(
 			child => $vbox,
 			title => 'Stack trace',
 			style => { linetype => 'single' }
-		);
+		));
+
 		$frame->set_window($float);
-		retain $frame;
 		$float->show;
+
+		# We're responsible for disposing the $frame object, since we retained
+		# it earlier.
 		$cleanup = sub {
 			$float->close;
 			$win->tickit->later(sub {
 				eval { dispose $frame; 1 }
 					or warn "Failed to dispose frame - $@";
+				$win->expose;
 			})
 		};
 	}
@@ -314,20 +341,23 @@ sub show_stacktrace {
 	$vbox->add($tbl, expand => 1);
 	$tbl->adapter->push(map $_->{stack}, @$items);
 	$vbox->add(
-		retain(Tickit::Widget::Button->new(
+		Tickit::Widget::Button->new(
 			label => 'OK',
 			on_click => sub {
-				$cleanup->();
-				$win->expose;
+				eval {
+					$cleanup->();
+					1
+				} or warn "Failed to do cleanup - $@";
 				
 				$win->tickit->later(sub {
 					eval { dispose $vbox; 1 }
 						or warn "Failed to dispose vbox - $@";
 				});
 			}
-		))
+		)
 	);
 	retain $vbox;
+} or do { warn "error - $@" }
 }
 
 1;
