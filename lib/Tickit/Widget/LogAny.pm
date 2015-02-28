@@ -26,6 +26,9 @@ Provides basic log rendering, with optional warn() / STDERR capture.
 
 =end HTML
 
+Activating any line in the list of log messages (typically by pressing C<Enter>) will
+show the stack trace for that entry.
+
 =cut
 
 use Log::Any qw($log);
@@ -44,7 +47,6 @@ use Tickit::Widget::Static;
 use Tickit::Widget::Frame;
 use Tickit::Widget::Button;
 
-use constant DEFAULT_LINES => 5;
 use constant WIDGET_PEN_FROM_STYLE => 1;
 
 BEGIN {
@@ -71,7 +73,7 @@ BEGIN {
 
 =cut
 
-sub lines { shift->{lines} || DEFAULT_LINES }
+sub lines { 1 }
 sub cols  { 1 }
 
 =head2 new
@@ -251,11 +253,60 @@ sub render_to_rb {
 sub show_stacktrace {
 	my ($self, $id, $items) = @_;
 
-	eval {
 	my ($item) = @$items;
+	my ($holder, $cleanup) = $self->stacktrace_holder_widget;
+
+	{
+		local $Text::Wrap::columns = $holder->window->cols;
+		my @text = map { split /\n/, $_ } Text::Wrap::wrap('', '', $item->{message});
+		$holder->add(Tickit::Widget::Static->new(text => $_)) for @text;
+	}
+
+	my $tbl = Tickit::Widget::Table->new(
+		columns => [
+			{ label => 'File' },
+			{ label => 'Line', width => 5 },
+			{ label => 'Context', width => 8 },
+			{ label => 'Sub' },
+		],
+		failure_transformations => [
+			sub { '' }
+		],
+		item_transformations => [
+			sub {
+				my ($idx, $item) = @_;
+				Future->done([ map $_ // '', @{$item}{qw(filename line ctx sub)} ])
+			}
+		]
+	);
+	$tbl->adapter->push(map $_->{stack}, @$items);
+	$holder->add($tbl, expand => 1);
+	my $win = $self->window;
+	$holder->add(
+		Tickit::Widget::Button->new(
+			label => 'OK',
+			on_click => sub {
+				eval {
+					$cleanup->();
+					1
+				} or warn "Failed to do cleanup - $@";
+				
+				$win->tickit->later(sub {
+					eval { dispose $holder; 1 }
+						or warn "Failed to dispose vbox - $@";
+				});
+			}
+		)
+	);
+	retain $holder;
+}
+
+sub stacktrace_holder_widget {
+	my ($self, $code) = @_;
 	my $container = $self;
 	$container = $container->parent while !$container->isa('Tickit::Widget::FloatBox') && !$container->isa('Tickit::Widget::Layout::Desktop') && $container->can('parent') && $container->parent;
 	$container = $self unless $container;
+
 	my $cleanup = sub { ... };
 	retain(my $vbox = Tickit::Widget::VBox->new);
 	my $win = $self->window;
@@ -267,9 +318,9 @@ sub show_stacktrace {
 		my $panel = $container->create_panel(
 			label => 'Stack trace',
 			lines => 20,
-			cols => 60,
-			top => 5,
-			left => 5,
+			cols  => 60,
+			top   => 5,
+			left  => 5,
 		);
 		$panel->add($vbox);
 		$cleanup = sub {
@@ -314,50 +365,7 @@ sub show_stacktrace {
 			})
 		};
 	}
-
-	{
-		local $Text::Wrap::columns = $vbox->window->cols;
-		my @text = map { split /\n/, $_ } Text::Wrap::wrap('', '', $item->{message});
-		$vbox->add(Tickit::Widget::Static->new(text => $_)) for @text;
-	}
-
-	my $tbl = Tickit::Widget::Table->new(
-		columns => [
-			{ label => 'File' },
-			{ label => 'Line', width => 5 },
-			{ label => 'Context', width => 8 },
-			{ label => 'Sub' },
-		],
-		failure_transformations => [
-			sub { '' }
-		],
-		item_transformations => [
-			sub {
-				my ($idx, $item) = @_;
-				Future->done([ map $_ // '', @{$item}{qw(filename line ctx sub)} ])
-			}
-		]
-	);
-	$vbox->add($tbl, expand => 1);
-	$tbl->adapter->push(map $_->{stack}, @$items);
-	$vbox->add(
-		Tickit::Widget::Button->new(
-			label => 'OK',
-			on_click => sub {
-				eval {
-					$cleanup->();
-					1
-				} or warn "Failed to do cleanup - $@";
-				
-				$win->tickit->later(sub {
-					eval { dispose $vbox; 1 }
-						or warn "Failed to dispose vbox - $@";
-				});
-			}
-		)
-	);
-	retain $vbox;
-} or do { warn "error - $@" }
+	return $vbox, $cleanup;
 }
 
 1;
