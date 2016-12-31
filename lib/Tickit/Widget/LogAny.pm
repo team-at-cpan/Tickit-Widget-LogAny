@@ -135,6 +135,7 @@ sub new {
 			width => 23,
 			transform => sub {
 				my ($row, $col, $cell) = @_;
+				return Future->done('') unless defined $cell && length $cell;
 				my @date = $self->get_style_pen('date')->getattrs;
 				my @date_sep = $self->get_style_pen('date_sep')->getattrs;
 				my @time = $self->get_style_pen('time')->getattrs;
@@ -164,7 +165,7 @@ sub new {
 			width => 9,
 			transform => sub {
 				my ($row, $col, $cell) = @_;
-				$self->{severity_style}{$cell}
+				$self->{severity_style}{$cell} // Future->done('')
 			}
 		}, {
 			label => 'Category',
