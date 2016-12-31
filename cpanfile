@@ -2,7 +2,7 @@ requires 'parent', 0;
 requires 'Future', '>= 0.30';
 requires 'Text::Wrap', 0;
 requires 'Tickit::Widget', 0;
-requires 'Tickit::Widget::Table', '>= 0.214';
+requires 'Tickit::Widget::Table', '>= 0.216';
 requires 'Tickit::Widget::VBox', 0;
 requires 'Tickit::Widget::Static', 0;
 requires 'Tickit::Widget::Frame', 0;
