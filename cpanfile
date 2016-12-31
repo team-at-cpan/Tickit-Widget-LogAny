@@ -10,6 +10,7 @@ requires 'Tickit::Widget::Button', 0;
 requires 'Log::Any', 0;
 requires 'Variable::Disposition', 0;
 requires 'Adapter::Async', 0;
+requires 'Syntax::Keyword::Try', '>= 0.04';
 
 on 'test' => sub {
 	requires 'Test::More', '>= 0.98';

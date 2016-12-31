@@ -17,7 +17,7 @@ Tickit::Widget::LogAny - log message rendering
 
 =head1 DESCRIPTION
 
-Provides basic log rendering, with optional warn() / STDERR capture.
+Provides basic log rendering, with optional C<warn> / C<STDERR> capture.
 
 =begin HTML
 
@@ -42,6 +42,8 @@ use Log::Any::Adapter::Util ();
 use Variable::Disposition qw(dispose retain retain_future);
 use POSIX qw(strftime);
 use Text::Wrap (); 
+
+use Syntax::Keyword::Try;
 
 use Tickit::Utils qw(textwidth substrwidth);
 use Tickit::Style;
@@ -317,10 +319,14 @@ sub show_stacktrace {
 					$cleanup->();
 					1
 				} or warn "Failed to do cleanup - $@";
-				
+
+				$win->close;
 				$win->tickit->later(sub {
-					eval { dispose $holder; 1 }
-						or warn "Failed to dispose vbox - $@";
+					try {
+						dispose $holder;
+					} catch {
+						warn "Failed to dispose vbox - $@";
+					}
 				});
 			}
 		)
@@ -351,13 +357,15 @@ sub stacktrace_holder_widget {
 		);
 		$panel->add($vbox);
 		$cleanup = sub {
-			eval {
-				$panel->close;
-				dispose $panel;
-				1;
-			} or do {
-				warn "Failed - $@";
-			};
+			$panel->close;
+			$win->tickit->later(sub {
+				try {
+					dispose $vbox;
+					dispose $panel;
+				} catch {
+					warn "Failed - $@";
+				}
+			});
 			$win->expose;
 		};
 	} else {
@@ -384,10 +392,15 @@ sub stacktrace_holder_widget {
 		# We're responsible for disposing the $frame object, since we retained
 		# it earlier.
 		$cleanup = sub {
+			$frame->set_window(undef);
 			$float->close;
 			$win->tickit->later(sub {
-				eval { dispose $frame; 1 }
-					or warn "Failed to dispose frame - $@";
+				try {
+					dispose $frame;
+					dispose $vbox;
+				} catch {
+					warn "Failed to dispose frame - $@";
+				}
 				$win->expose;
 			})
 		};
