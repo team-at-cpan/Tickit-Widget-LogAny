@@ -1,6 +1,7 @@
 requires 'parent', 0;
 requires 'Future', '>= 0.30';
 requires 'Text::Wrap', 0;
+requires 'Tickit::Utils', 0;
 requires 'Tickit::Widget', 0;
 requires 'Tickit::Widget::Table', '>= 0.216';
 requires 'Tickit::Widget::VBox', 0;
